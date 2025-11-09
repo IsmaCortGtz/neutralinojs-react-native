@@ -7,7 +7,6 @@ neutralino/
 # Neutralinojs binaries and builds
 /bin
 /dist
-/log
 /.tmp
 /resources
 
