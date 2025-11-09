@@ -3,6 +3,14 @@
   "version": "0.1.0",
   "description": "React Native CLI integration for Neutralinojs",
   "license": "MIT",
+  "main": "exports/index.cjs",
+  "module": "exports/index.js",
+  "exports": {
+    ".": {
+      "import": "./exports/index.js",
+      "require": "./exports/index.cjs"
+    }
+  },
   "author": {
     "name": "Neutralinojs and contributors",
     "email": "neutralinojs@gmail.com",
@@ -14,7 +22,8 @@
     "cli/",
     "neu/",
     "vite/",
-    "utils/"
+    "utils/",
+    "exports/"
   ],
   "keywords": [
     "react-native",

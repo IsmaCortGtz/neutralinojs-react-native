@@ -1,5 +1,6 @@
 const fs = require('fs/promises');
 const flowRemoveTypes = require('flow-remove-types');
+const path = require('path');
 
 const development = process.env.NODE_ENV === 'development';
 const extensions = [
@@ -38,79 +39,82 @@ const esbuildPlugin = () => ({
 	},
 });
 
-const reactNativeNeu = () => ({
-	enforce: 'pre',
-	name: 'react-native-neu',
+const reactNativeNeu = () => {
+  const shimPath = path.dirname(require.resolve('@neutralinojs/react-native'));
+  const newScreenPath = path.join(path.dirname(require.resolve('@neutralinojs/react-native')), 'new-app-screen');
+	
+	return {
+		enforce: 'pre',
+		name: 'react-native-neu',
 
-	config: () => ({
-		define: {
-			global: 'self',
-			__DEV__: JSON.stringify(development),
-			'process.env.NODE_ENV': JSON.stringify(process.env.NODE_ENV),
-			'process.env.EXPO_OS': JSON.stringify('neu'),
-		},
-		build: {
-			commonjsOptions: {
-				extensions,
-				transformMixedEsModules: true,
+		config: () => ({
+			define: {
+				global: 'self',
+				__DEV__: JSON.stringify(development),
+				'process.env.NODE_ENV': JSON.stringify(process.env.NODE_ENV),
+				'process.env.EXPO_OS': JSON.stringify('neu'),
 			},
-		},
-		resolve: {
-			extensions,
-			alias: [{ find: 'react-native', replacement: 'react-native-web' }],
-		},
-		optimizeDeps: {
-			esbuildOptions: {
-				plugins: [esbuildPlugin()],
-				resolveExtensions: extensions,
-			},
-		},
-	}),
-
-	async transform(code, id) {
-		id = id.split('?')[0]
-
-		if (!reactNativeFlowJsxPathPattern.test(id)) {
-			return
-		}
-
-		let map = null
-
-		if (flowPragmaPattern.test(code)) {
-			const transformed = flowRemoveTypes(code)
-			code = transformed.toString()
-			map = {
-				file: id,
-				toUrl: () => id,
-				...transformed.generateMap(),
-			}
-		}
-
-		if (jsxElementPattern.test(code) || jsxSelfClosingPattern.test(code) || jsxFragmentPattern.test(code)) {
-
-      const vite = await import('vite');
-      const { transformWithEsbuild } = vite;
-
-			const result = await transformWithEsbuild(code, id, {
-				loader: reactNativeFlowJsxLoader,
-				tsconfigRaw: {
-					compilerOptions: {
-						jsx: 'react-jsx',
-					},
+			build: {
+				commonjsOptions: {
+					extensions,
+					transformMixedEsModules: true,
 				},
-			})
+			},
+      resolve: {
+        alias: [
+          { find: /^@react-native\/new-app-screen$/, replacement: newScreenPath },
+          { find: /^react-native$/, replacement: shimPath },
+          { find: /^react-native-web$/, replacement: shimPath },
+        ],
+      },
+			optimizeDeps: {
+				esbuildOptions: {
+					plugins: [esbuildPlugin()],
+					resolveExtensions: extensions,
+				},
+			},
+		}),
 
-			code = result.code
-			map = result.map
+		async transform(code, id) {
+			id = id.split('?')[0]
+			if (!reactNativeFlowJsxPathPattern.test(id)) return
+			let map = null
 
-			// Do not include source maps for files that are using 'use client' pragma since these break the esbuild mappings (https://github.com/vitejs/vite/issues/15012)
-			if (useClientPragmaPattern.test(code)) {
-				map = null
+			if (flowPragmaPattern.test(code)) {
+				const transformed = flowRemoveTypes(code)
+				code = transformed.toString()
+				map = {
+					file: id,
+					toUrl: () => id,
+					...transformed.generateMap(),
+				}
 			}
-		}
 
-		return { code, map }
-	},
-});
+			if (jsxElementPattern.test(code) || jsxSelfClosingPattern.test(code) || jsxFragmentPattern.test(code)) {
+				const vite = await import('vite');
+				const { transformWithEsbuild } = vite;
+
+				const result = await transformWithEsbuild(code, id, {
+					loader: reactNativeFlowJsxLoader,
+					tsconfigRaw: {
+						compilerOptions: {
+							jsx: 'react-jsx',
+						},
+					},
+				})
+
+				code = result.code
+				map = result.map
+
+				// Do not include source maps for files that are using 'use client' pragma since these break the esbuild mappings (https://github.com/vitejs/vite/issues/15012)
+				if (useClientPragmaPattern.test(code)) {
+					map = null
+				}
+			}
+
+			return { code, map }
+		},
+	};
+};
 
 module.exports = reactNativeNeu;
