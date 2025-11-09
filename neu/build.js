@@ -1,7 +1,7 @@
 const path = require('path');
 const { execSync } = require('child_process');
 const { neuExists, binExists } = require('./exists');
-const { log } = require('../utils/log');
+const { log, error } = require('../utils/log');
 const loadViteConfig = require('../vite/loadConfig.js');
 const defaultViteConfig = require('../vite/defaultConfig.js');
 const root = process.cwd();
@@ -9,7 +9,7 @@ const root = process.cwd();
 module.exports = async function buildNeu() {
   try {
     if (!neuExists() || !binExists('neu')) {
-      log('Neutralino project or neu binary not found. Please initialize the project first.');
+      error('Neutralino project or neu binary not found. Please initialize the project first.');
       process.exit(1);
     }
 
